@@ -1,6 +1,10 @@
 ## EX. NO:2 IMPLEMENTATION OF PLAYFAIR CIPHER
 
+
 ## AIM:
+ 
+
+ 
 
 To write a C program to implement the Playfair Substitution technique.
 
@@ -20,87 +24,164 @@ To encrypt a message, one would break the message into digrams (groups of 2 lett
 
 ## ALGORITHM:
 
-STEP-1: Read the plain text from the user.
-STEP-2: Read the keyword from the user.
-STEP-3: Arrange the keyword without duplicates in a 5*5 matrix in the row order and fill the remaining cells with missed out letters in alphabetical order. Note that ‘i’ and ‘j’ takes the same cell.
-STEP-4: Group the plain text in pairs and match the corresponding corner letters by forming a rectangular grid.
-STEP-5: Display the obtained cipher text.
+#### STEP-1: Read the plain text from the user.
+#### STEP-2: Read the keyword from the user.
+#### STEP-3: Arrange the keyword without duplicates in a 5*5 matrix in the row order and fill the remaining cells with missed out letters in alphabetical order. Note that ‘i’ and ‘j’ takes the same cell.
+#### STEP-4: Group the plain text in pairs and match the corresponding corner letters by forming a rectangular grid.
+#### STEP-5: Display the obtained cipher text.
 
 
 
 
-## Program:
+## PROGRAM:
 ```
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
-int main() {
-    unsigned int a[3][3] = {
-        {6, 24, 1},
-        {13, 16, 10},
-        {20, 17, 15}
-    }; // Encryption key matrix
+#define SIZE 5
 
-    unsigned int b[3][3] = {
-        {8, 5, 10},
-        {21, 8, 21},
-        {21, 12, 8}
-    }; // Decryption key matrix (inverse of 'a' mod 26)
+void generateKeyMatrix(char key[], char matrix[SIZE][SIZE]) {
+    int alpha[26] = {0};
+    int i, j, k = 0;
+    char current;
 
-    int i, j, t = 0;
-    unsigned int c[20], d[20];
-    char msg[20];
-
-    printf("Enter 3-letter plain text (in CAPS): ");
-    scanf("%s", msg);
-
-    if (strlen(msg) != 3) {
-        printf("Please enter exactly 3 uppercase letters.\n");
-        return 1;
+    // Remove duplicates and replace 'J' with 'I'
+    for (i = 0; key[i] != '\0'; i++) {
+        current = toupper(key[i]);
+        if (current == 'J') current = 'I';
+        if (current < 'A' || current > 'Z' || alpha[current - 'A'])
+            continue;
+        alpha[current - 'A'] = 1;
+        key[k++] = current;
     }
+    key[k] = '\0';
 
-    // Convert characters to numbers
-    printf("Numeric Representation: ");
-    for (i = 0; i < 3; i++) {
-        c[i] = msg[i] - 'A';
-        printf("%d ", c[i]);
-    }
-
-    // Encryption
-    for (i = 0; i < 3; i++) {
-        t = 0;
-        for (j = 0; j < 3; j++) {
-            t += a[i][j] * c[j];
+    // Fill matrix with key characters and remaining alphabet
+    i = 0; k = 0;
+    for (int row = 0; row < SIZE; row++) {
+        for (int col = 0; col < SIZE; col++) {
+            if (i < strlen(key)) {
+                matrix[row][col] = key[i++];
+            } else {
+                for (char ch = 'A'; ch <= 'Z'; ch++) {
+                    if (ch == 'J' || alpha[ch - 'A'])
+                        continue;
+                    matrix[row][col] = ch;
+                    alpha[ch - 'A'] = 1;
+                    break;
+                }
+            }
         }
-        d[i] = t % 26;
     }
-
-    printf("\nEncrypted Cipher Text: ");
-    for (i = 0; i < 3; i++) {
-        printf("%c", d[i] + 'A');
-    }
-
-    // Decryption
-    for (i = 0; i < 3; i++) {
-        t = 0;
-        for (j = 0; j < 3; j++) {
-            t += b[i][j] * d[j];
-        }
-        c[i] = t % 26;
-    }
-
-    printf("\nDecrypted Plain Text: ");
-    for (i = 0; i < 3; i++) {
-        printf("%c", c[i] + 'A');
-    }
-
-    printf("\n");
-    return 0;
 }
 
+void findPosition(char matrix[SIZE][SIZE], char ch, int *row, int *col) {
+    if (ch == 'J') ch = 'I';  // Treat 'J' as 'I'
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            if (matrix[i][j] == ch) {
+                *row = i;
+                *col = j;
+                return;
+            }
+        }
+    }
+}
+
+void processDigraph(char a, char b, char matrix[SIZE][SIZE], char *resA, char *resB, int encrypt) {
+    int row1, col1, row2, col2;
+    findPosition(matrix, a, &row1, &col1);
+    findPosition(matrix, b, &row2, &col2);
+
+    if (row1 == row2) {  // Same row
+        *resA = matrix[row1][(col1 + (encrypt ? 1 : SIZE - 1)) % SIZE];
+        *resB = matrix[row2][(col2 + (encrypt ? 1 : SIZE - 1)) % SIZE];
+    } else if (col1 == col2) {  // Same column
+        *resA = matrix[(row1 + (encrypt ? 1 : SIZE - 1)) % SIZE][col1];
+        *resB = matrix[(row2 + (encrypt ? 1 : SIZE - 1)) % SIZE][col2];
+    } else {  // Rectangle swap
+        *resA = matrix[row1][col2];
+        *resB = matrix[row2][col1];
+    }
+}
+
+void preprocessText(char *text) {
+    char temp[100] = {0};
+    int k = 0;
+
+    for (int i = 0; text[i]; i++) {
+        if (isalpha(text[i])) {
+            temp[k++] = toupper(text[i] == 'J' ? 'I' : text[i]);
+        }
+    }
+    temp[k] = '\0';
+    strcpy(text, temp);
+}
+
+void encryptDecryptText(char *text, char matrix[SIZE][SIZE], int encrypt) {
+    preprocessText(text);
+    char result[100] = {0};
+    int len = strlen(text), k = 0;
+
+    for (int i = 0; i < len; i += 2) {
+        char a = text[i];
+        char b = (i + 1 < len) ? text[i + 1] : 'X';
+
+        if (a == b) {
+            b = 'X';  // Insert 'X' between identical letters
+            i--;      // Re-evaluate second character
+        }
+
+        char resA, resB;
+        processDigraph(a, b, matrix, &resA, &resB, encrypt);
+        result[k++] = resA;
+        result[k++] = resB;
+    }
+    result[k] = '\0';
+    strcpy(text, result);
+}
+
+void printMatrix(char matrix[SIZE][SIZE]) {
+    printf("Key Matrix:\n");
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            printf("%c ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+int main() {
+    char key[100], text[100], matrix[SIZE][SIZE];
+    
+    printf("Enter the key: ");
+    fgets(key, sizeof(key), stdin);
+    key[strcspn(key, "\n")] = '\0';
+
+    printf("Enter text to encrypt: ");
+    fgets(text, sizeof(text), stdin);
+    text[strcspn(text, "\n")] = '\0';
+
+    generateKeyMatrix(key, matrix);
+    printMatrix(matrix);
+
+    encryptDecryptText(text, matrix, 1);  // Encrypt
+    printf("Encrypted Text: %s\n", text);
+
+    encryptDecryptText(text, matrix, 0);  // Decrypt
+    printf("Decrypted Text: %s\n", text);
+
+    return 0;
+}
 ```
 
-## Output:
-![Screenshot 2025-05-23 210730](https://github.com/user-attachments/assets/6b6f7932-de2b-4725-933e-0f8587fd3d62)
 
 
+
+## OUTPUT:
+![image](https://github.com/user-attachments/assets/655d4507-b6e8-4ef5-b8ed-cc5457be005b)
+
+
+## RESULT:
+Hence, the implementation of the Playfair cipher is successfully completed. The encryption and decryption processes were tested, and the original text was accurately recovered, verifying the correctness of the algorithm.
